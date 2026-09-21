@@ -82,12 +82,6 @@ gd, gd_demo = data["guardduty"]
 insp, insp_demo = data["inspector"]
 ct, ct_demo = data["cloudtrail"]
 
-any_demo = any([sh_demo, gd_demo, insp_demo, ct_demo])
-if any_demo:
-    demo_sources = [n for n, d in [("Security Hub", sh_demo), ("GuardDuty", gd_demo),
-                                    ("Inspector", insp_demo), ("CloudTrail", ct_demo)] if d]
-    st.warning(f"⚠️ DEMO DATA MODE for: {', '.join(demo_sources)} "
-               f"(live AWS call unavailable — showing realistic sample data instead)")
 
 # --- KPIs ---------------------------------------------------------------
 all_findings = sh + gd + insp
