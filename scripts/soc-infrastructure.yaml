@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  AWS SOC Dashboard - supporting infrastructure. Enables GuardDuty, creates
+  an S3 bucket + CloudTrail trail, and an IAM role with read-only access to
+  Security Hub, GuardDuty, Inspector, and CloudTrail for the dashboard app.
+  NOTE: Security Hub and Inspector2 enablement are best done via the AWS CLI
+  script (enable-security-services.sh) or console, since CloudFormation
+  support for them is limited/region-dependent.
+
+Parameters:
+  TrailBucketName:
+    Type: String
+    Description: Globally-unique S3 bucket name for CloudTrail logs.
+
+Resources:
+
+  CloudTrailLogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref TrailBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  CloudTrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CloudTrailLogBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AWSCloudTrailAclCheck
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt CloudTrailLogBucket.Arn
+          - Sid: AWSCloudTrailWrite
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "${CloudTrailLogBucket.Arn}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+
+  SOCTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: CloudTrailBucketPolicy
+    Properties:
+      TrailName: soc-dashboard-trail
+      S3BucketName: !Ref CloudTrailLogBucket
+      IsLogging: true
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+      Enable: true
+      FindingPublishingFrequency: FIFTEEN_MINUTES
+
+  SOCDashboardReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: soc-dashboard-readonly-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: soc-dashboard-readonly-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - securityhub:GetFindings
+                  - securityhub:DescribeHub
+                  - guardduty:ListDetectors
+                  - guardduty:ListFindings
+                  - guardduty:GetFindings
+                  - inspector2:ListFindings
+                  - cloudtrail:LookupEvents
+                  - cloudtrail:DescribeTrails
+                Resource: "*"
+
+Outputs:
+  TrailBucket:
+    Description: S3 bucket storing CloudTrail logs
+    Value: !Ref CloudTrailLogBucket
+  DashboardRoleArn:
+    Description: IAM role the dashboard app can assume for read-only access
+    Value: !GetAtt SOCDashboardReadOnlyRole.Arn
+  GuardDutyDetectorId:
+    Description: GuardDuty detector ID
+    Value: !Ref GuardDutyDetector

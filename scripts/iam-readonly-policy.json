@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SecurityHubReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:GetFindings",
+        "securityhub:DescribeHub"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "GuardDutyReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "guardduty:ListDetectors",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "InspectorReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "inspector2:ListFindings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudTrailReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:LookupEvents",
+        "cloudtrail:DescribeTrails"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
